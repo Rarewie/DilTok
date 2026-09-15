@@ -209,11 +209,9 @@
   </div>
 
   <script>
-    // Точный URL без лишнего /rest/v1/
     const SUPABASE_PROJECT_URL = "https://tztvrocjqozwxijkxwxh.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_So31sdxnNk7bscRc3bVBmg_gU6r6Hrk";
+    const SUPABASE_ANON_KEY = "sb_publishable_So31sdxnNk7bscRc3bVBmg_gU6r6Hrk"; // Ваш актуальный publishable ключ
 
-    // Создаем клиент один раз под уникальным именем
     const clientDb = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
     
     const tg = window.Telegram?.WebApp;
@@ -223,8 +221,10 @@
     }
 
     let currentUser = null;
+    let allVideos = [];
+    let watchedVideoIds = new Set();
+    let currentRenderedIndex = 0;
 
-    // Глобальная функция переключения экранов
     function switchView(view) {
       document.getElementById('modal-upload').style.display = (view === 'upload') ? 'flex' : 'none';
       document.getElementById('modal-profile').style.display = (view === 'profile') ? 'flex' : 'none';
@@ -273,25 +273,57 @@
           return;
         }
 
-        loadFeed();
+        fetchVideosAndInitFeed();
+        
+        // Автообновление ленты каждые 10 секунд (подгрузка новых видео)
+        setInterval(checkForNewVideos, 10000);
+
       } catch (err) {
         document.getElementById('feed').innerHTML = `<div style="padding:24px;text-align:center;color:#ef4444;">Ошибка подключения: ${err.message}</div>`;
       }
     }
 
-    async function loadFeed() {
-      const feed = document.getElementById('feed');
+    async function fetchVideosAndInitFeed() {
       const { data: videos, error } = await clientDb
         .from('videos')
         .select('*, users!inner(*)')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Ошибка загрузки видео.</div>';
-        return;
-      }
+      if (error) return;
 
-      if (!videos || videos.length === 0) {
+      const hasNewContent = JSON.stringify(allVideos.map(v => v.id)) !== JSON.stringify((videos || []).map(v => v.id));
+      allVideos = videos || [];
+
+      const feed = document.getElementById('feed');
+      if (feed.children.length === 0 || hasNewContent) {
+        renderFeed();
+      }
+    }
+
+    async function checkForNewVideos() {
+      if (!currentUser) return;
+      const { data: videos } = await clientDb
+        .from('videos')
+        .select('*, users!inner(*)')
+        .order('created_at', { ascending: false });
+
+      if (!videos) return;
+
+      // Если появилось абсолютно новое видео, которого у нас не было — добавим в начало
+      const existingIds = new Set(allVideos.map(v => v.id));
+      const brandNew = videos.filter(v => !existingIds.has(v.id));
+
+      if (brandNew.length > 0) {
+        allVideos = videos;
+        // Если пользователь уже просмотрел все старые, сбросим просмотренные повторки
+        brandNew.forEach(v => watchedVideoIds.delete(v.id));
+        renderFeed(true); // Мягкое обновление
+      }
+    }
+
+    async function renderFeed(keepPosition = false) {
+      const feed = document.getElementById('feed');
+      if (allVideos.length === 0) {
         feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Пока нет видео. Опубликуйте первое!</div>';
         return;
       }
@@ -302,11 +334,29 @@
         .eq('user_id', currentUser.tg_id);
 
       const likedSet = new Set((userLikes || []).map(l => l.video_id));
-      feed.innerHTML = '';
 
-      videos.forEach(v => {
+      if (!keepPosition) {
+        feed.innerHTML = '';
+      }
+
+      // Выбираем видео по системе рекомендаций:
+      // Сначала те, которые еще не смотрели (watchedVideoIds). Если все посмотрели — берем заново.
+      let un-watched = allVideos.filter(v => !watchedVideoIds.has(v.id));
+      let pool = un-watched.length > 0 ? un-watched : allVideos;
+      
+      if (un-watched.length === 0) {
+        watchedVideoIds.clear(); // Сброс круга повторов, когда кончились все видео
+      }
+
+      // Отрисовываем пул доступных видео
+      pool.forEach(v => {
+        if (document.getElementById(`card-${v.id}`)) return; // Уже на экране
+
+        watchedVideoIds.add(v.id);
         const card = document.createElement('div');
         card.className = 'video-card';
+        card.id = `card-${v.id}`;
+        
         const isLiked = likedSet.has(v.id);
         const avatar = v.users.avatar_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%2371717a'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
@@ -341,6 +391,11 @@
           if (entry.isIntersecting) {
             video.currentTime = 0;
             video.play().catch(() => {});
+            
+            // Если доскроллили до конца ленты, подгружаем еще из пула рекомендаций
+            if (entry.target === document.querySelector('#feed > .video-card:last-child')) {
+              fetchVideosAndInitFeed();
+            }
           } else {
             video.pause();
           }
@@ -409,7 +464,7 @@
         const ext = file.name.split('.').pop() || 'mp4';
         const path = `videos/${currentUser.tg_id}_${Date.now()}.${ext}`;
 
-        const { error: uploadErr } = await clientDb.storage.from('media').upload(path, file);
+        const { error: uploadErr } = await clientDb.storage.from('media').upload(path, file, { upsert: true });
         if (uploadErr) throw uploadErr;
 
         const { data: { publicUrl } } = clientDb.storage.from('media').getPublicUrl(path);
@@ -429,7 +484,7 @@
         fileInput.value = '';
         document.getElementById('video-caption').value = '';
         switchView('feed');
-        loadFeed();
+        fetchVideosAndInitFeed();
       } catch (err) {
         alert('Ошибка при публикации: ' + err.message);
       } finally {
@@ -466,7 +521,7 @@
           const ext = avatarFile.name.split('.').pop() || 'jpg';
           const path = `avatars/${currentUser.tg_id}_${Date.now()}.${ext}`;
           
-          const { error: uploadErr } = await clientDb.storage.from('media').upload(path, avatarFile);
+          const { error: uploadErr } = await clientDb.storage.from('media').upload(path, avatarFile, { upsert: true });
           if (uploadErr) throw uploadErr;
 
           const { data } = clientDb.storage.from('media').getPublicUrl(path);
@@ -486,7 +541,7 @@
 
         alert('Профиль обновлен!');
         switchView('feed');
-        loadFeed();
+        fetchVideosAndInitFeed();
       } catch (err) {
         alert('Ошибка сохранения: ' + err.message);
       } finally {
@@ -498,7 +553,7 @@
     async function adminDelete(id) {
       if (!confirm('Удалить видео?')) return;
       await clientDb.from('videos').delete().eq('id', id);
-      loadFeed();
+      fetchVideosAndInitFeed();
     }
 
     async function adminBan(userId) {
@@ -506,14 +561,13 @@
       await clientDb.from('users').update({ is_banned: true }).eq('tg_id', userId);
       await clientDb.from('videos').delete().eq('author_id', userId);
       alert('Пользователь забанен.');
-      loadFeed();
+      fetchVideosAndInitFeed();
     }
 
     function escapeHtml(str) {
       return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' })[m]);
     }
 
-    // Запуск приложения
     initUser();
   </script>
 </body>
