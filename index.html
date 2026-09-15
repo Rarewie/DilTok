@@ -210,7 +210,8 @@
 
   <script>
     const SUPABASE_PROJECT_URL = "https://tztvrocjqozwxijkxwxh.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_So31sdxnNk7bscRc3bVBmg_gU6r6Hrk"; // Ваш актуальный publishable ключ
+    // Обязательно строка в кавычках без троеточий и разрывов:
+    const SUPABASE_ANON_KEY = "sb_publishable_So31sdxnNk7bscRc3bVBmg_gU6r6Hrk"; 
 
     const clientDb = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
     
@@ -223,7 +224,6 @@
     let currentUser = null;
     let allVideos = [];
     let watchedVideoIds = new Set();
-    let currentRenderedIndex = 0;
 
     function switchView(view) {
       document.getElementById('modal-upload').style.display = (view === 'upload') ? 'flex' : 'none';
@@ -274,8 +274,6 @@
         }
 
         fetchVideosAndInitFeed();
-        
-        // Автообновление ленты каждые 10 секунд (подгрузка новых видео)
         setInterval(checkForNewVideos, 10000);
 
       } catch (err) {
@@ -309,15 +307,13 @@
 
       if (!videos) return;
 
-      // Если появилось абсолютно новое видео, которого у нас не было — добавим в начало
       const existingIds = new Set(allVideos.map(v => v.id));
       const brandNew = videos.filter(v => !existingIds.has(v.id));
 
       if (brandNew.length > 0) {
         allVideos = videos;
-        // Если пользователь уже просмотрел все старые, сбросим просмотренные повторки
         brandNew.forEach(v => watchedVideoIds.delete(v.id));
-        renderFeed(true); // Мягкое обновление
+        renderFeed(true);
       }
     }
 
@@ -339,18 +335,15 @@
         feed.innerHTML = '';
       }
 
-      // Выбираем видео по системе рекомендаций:
-      // Сначала те, которые еще не смотрели (watchedVideoIds). Если все посмотрели — берем заново.
-      let un-watched = allVideos.filter(v => !watchedVideoIds.has(v.id));
-      let pool = un-watched.length > 0 ? un-watched : allVideos;
+      let unwatched = allVideos.filter(v => !watchedVideoIds.has(v.id));
+      let pool = unwatched.length > 0 ? unwatched : allVideos;
       
-      if (un-watched.length === 0) {
-        watchedVideoIds.clear(); // Сброс круга повторов, когда кончились все видео
+      if (unwatched.length === 0) {
+        watchedVideoIds.clear();
       }
 
-      // Отрисовываем пул доступных видео
       pool.forEach(v => {
-        if (document.getElementById(`card-${v.id}`)) return; // Уже на экране
+        if (document.getElementById(`card-${v.id}`)) return;
 
         watchedVideoIds.add(v.id);
         const card = document.createElement('div');
@@ -392,7 +385,6 @@
             video.currentTime = 0;
             video.play().catch(() => {});
             
-            // Если доскроллили до конца ленты, подгружаем еще из пула рекомендаций
             if (entry.target === document.querySelector('#feed > .video-card:last-child')) {
               fetchVideosAndInitFeed();
             }
