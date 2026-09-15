@@ -13,13 +13,13 @@
       --accent: #ff004f;
       --text: #ffffff;
       --text-muted: #71717a;
-      --border: rgba(255, 255, 255, 0.1);
+      --border: rgba(255, 255, 255, 0.12);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
     
     .feed-container {
-      height: 100vh;
+      height: calc(100vh - 65px);
       width: 100vw;
       overflow-y: scroll;
       scroll-snap-type: y mandatory;
@@ -29,7 +29,7 @@
     
     .video-card {
       position: relative;
-      height: 100vh;
+      height: 100%;
       width: 100vw;
       scroll-snap-align: start;
       background: #000;
@@ -42,15 +42,16 @@
     .sidebar {
       position: absolute;
       right: 12px;
-      bottom: 80px;
+      bottom: 24px;
       display: flex;
       flex-direction: column;
       gap: 14px;
       align-items: center;
       z-index: 10;
+      pointer-events: auto;
     }
     .btn-action {
-      background: rgba(24, 24, 27, 0.65);
+      background: rgba(24, 24, 27, 0.7);
       backdrop-filter: blur(10px);
       border: 1px solid var(--border);
       width: 44px;
@@ -69,7 +70,7 @@
     .meta {
       position: absolute;
       left: 16px;
-      bottom: 80px;
+      bottom: 24px;
       right: 70px;
       z-index: 10;
       text-shadow: 0 2px 4px rgba(0,0,0,0.8);
@@ -82,15 +83,17 @@
     .nav {
       position: fixed;
       bottom: 0;
+      left: 0;
       width: 100%;
-      height: 60px;
-      background: rgba(9, 9, 11, 0.85);
+      height: 65px;
+      background: rgba(9, 9, 11, 0.95);
       backdrop-filter: blur(16px);
       display: flex;
       justify-content: space-around;
       align-items: center;
       border-top: 1px solid var(--border);
-      z-index: 20;
+      z-index: 9999;
+      pointer-events: auto;
     }
     .nav button {
       background: none;
@@ -102,16 +105,18 @@
       align-items: center;
       gap: 3px;
       cursor: pointer;
+      padding: 8px 16px;
     }
     .nav button.active { color: var(--text); font-weight: 600; }
     .nav-post-btn {
       background: linear-gradient(135deg, #00f2fe, var(--accent)) !important;
       color: #fff !important;
-      width: 44px;
-      height: 30px;
+      width: 46px;
+      height: 32px;
       border-radius: 8px;
       font-size: 20px !important;
       justify-content: center !important;
+      padding: 0 !important;
     }
 
     .modal {
@@ -120,13 +125,13 @@
       background: var(--bg);
       display: none;
       flex-direction: column;
-      z-index: 30;
-      padding: 20px 16px;
+      z-index: 10000;
+      padding: 20px 16px 80px 16px;
       overflow-y: auto;
     }
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .input-group { margin-bottom: 16px; }
-    .input-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .input-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; }
     .input-group input, .input-group textarea {
       width: 100%;
       background: var(--card-bg);
@@ -156,34 +161,36 @@
 </head>
 <body>
 
-  <div id="feed" class="feed-container"></div>
+  <div id="feed" class="feed-container">
+    <div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Загрузка ленты...</div>
+  </div>
 
   <div class="nav">
-    <button id="nav-btn-feed" class="active" onclick="switchView('feed')">Лента</button>
-    <button class="nav-post-btn" onclick="switchView('upload')">+</button>
-    <button id="nav-btn-profile" onclick="switchView('profile')">Профиль</button>
+    <button id="nav-btn-feed" class="active" type="button">Лента</button>
+    <button id="nav-btn-upload" class="nav-post-btn" type="button">+</button>
+    <button id="nav-btn-profile" type="button">Профиль</button>
   </div>
 
   <div id="modal-upload" class="modal">
     <div class="modal-header">
       <h3>Новая публикация</h3>
-      <button onclick="switchView('feed')" style="background:none;border:none;color:#fff;font-size:20px;">✕</button>
+      <button id="close-upload-btn" type="button" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">✕</button>
     </div>
     <div class="input-group">
-      <label>Видеофайл (MP4/WebM, до 19.99 МБ, до 60 сек)</label>
+      <label>Видеофайл (до 19.99 МБ, до 60 сек)</label>
       <input type="file" id="video-file" accept="video/mp4,video/webm,video/quicktime">
     </div>
     <div class="input-group">
       <label>Описание</label>
-      <textarea id="video-caption" rows="3" placeholder="Добавьте подпись к видео..."></textarea>
+      <textarea id="video-caption" rows="3" placeholder="Что происходит на видео?"></textarea>
     </div>
-    <button class="btn-submit" id="btn-upload" onclick="handleUpload()">Опубликовать</button>
+    <button class="btn-submit" id="btn-upload" type="button">Опубликовать</button>
   </div>
 
   <div id="modal-profile" class="modal">
     <div class="modal-header">
       <h3>Мой профиль</h3>
-      <button onclick="switchView('feed')" style="background:none;border:none;color:#fff;font-size:20px;">✕</button>
+      <button id="close-profile-btn" type="button" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">✕</button>
     </div>
     <img id="my-avatar" class="profile-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='%2371717a'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
     <div class="stats-card">
@@ -192,38 +199,54 @@
     </div>
     <div class="input-group">
       <label>Сменить аватарку</label>
-      <input type="file" id="avatar-file" accept="image/jpeg,image/png,image/webp">
+      <input type="file" id="avatar-file" accept="image/*">
     </div>
     <div class="input-group">
       <label>Отображаемое имя</label>
       <input type="text" id="custom-name" placeholder="Ваш никнейм">
     </div>
-    <button class="btn-submit" id="btn-save-profile" onclick="saveProfile()">Сохранить изменения</button>
+    <button class="btn-submit" id="btn-save-profile" type="button">Сохранить изменения</button>
   </div>
 
   <script>
+    const SUPABASE_URL = "https://tztvrocjqozwxijkxwxh.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6dHZyb2NqcW96d3hpamt4d3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDkNzEyODYsImV4cCI6MjAyNTI4NzI4Nn0.c1Xvgl0kmS-HnpQc_69GEZ_0lLAyWnFrW4GHe3Yn-28";
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
       tg.expand();
     }
 
-    // --- ВСТАВЬТЕ СЮДА ВАШИ ДАННЫЕ ИЗ ШАГА 5 ---
-    const SUPABASE_URL = "https://tztvrocjqozwxijkxwxh.supabase.co/rest/v1/";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6dHZyb2NqcW96d3hpamt4d3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzEyODYsImV4cCI6MjEwNTA0NzI4Nn0.c1XvgL0kmS-HnpQc_69GEZ_0lLAyWnFrW4GHe3Yn-28";
-    // ------------------------------------------
-
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     let currentUser = null;
+
+    function switchView(view) {
+      document.getElementById('modal-upload').style.display = view === 'upload' ? 'flex' : 'none';
+      document.getElementById('modal-profile').style.display = view === 'profile' ? 'flex' : 'none';
+      
+      document.getElementById('nav-btn-feed').classList.toggle('active', view === 'feed');
+      document.getElementById('nav-btn-profile').classList.toggle('active', view === 'profile');
+
+      if (view === 'profile' && currentUser) {
+        loadProfileData();
+      }
+    }
+
+    document.getElementById('nav-btn-feed').addEventListener('click', () => switchView('feed'));
+    document.getElementById('nav-btn-upload').addEventListener('click', () => switchView('upload'));
+    document.getElementById('nav-btn-profile').addEventListener('click', () => switchView('profile'));
+    document.getElementById('close-upload-btn').addEventListener('click', () => switchView('feed'));
+    document.getElementById('close-profile-btn').addEventListener('click', () => switchView('feed'));
 
     async function initUser() {
       const initData = tg?.initData;
 
       if (!initData) {
-        document.body.innerHTML = `
-          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;padding:24px;text-align:center;">
-            <h2 style="margin-bottom:8px;">Доступ ограничен</h2>
-            <p style="color:var(--text-muted);font-size:14px;">Откройте это веб-приложение через Telegram-бота для безопасной авторизации.</p>
+        document.getElementById('feed').innerHTML = `
+          <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%;padding:24px;text-align:center;">
+            <h3 style="margin-bottom:8px;">Запустите в Telegram</h3>
+            <p style="color:var(--text-muted);font-size:14px;">Приложение работает только через кнопку меню бота.</p>
           </div>
         `;
         return;
@@ -240,73 +263,68 @@
         });
 
         if (!response.ok) {
-          throw new Error("Ошибка проверки подлинности Telegram");
+          const errData = await response.json();
+          throw new Error(errData.error || "Ошибка авторизации");
         }
 
         const data = await response.json();
         currentUser = data.user;
 
         if (currentUser.is_banned) {
-          document.body.innerHTML = `
-            <div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#ef4444;font-size:16px;padding:20px;text-align:center;">
-              Ваш аккаунт заблокирован администратором.
-            </div>
-          `;
+          document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#ef4444;">Аккаунт заблокирован.</div>';
           return;
         }
 
         loadFeed();
-        loadProfileData();
       } catch (err) {
-        alert("Ошибка инициализации: " + err.message);
+        document.getElementById('feed').innerHTML = `<div style="padding:20px;text-align:center;color:#ef4444;">Ошибка подключения: ${err.message}</div>`;
       }
     }
 
     async function loadFeed() {
       const feed = document.getElementById('feed');
-      feed.innerHTML = '';
-
-      const { data: videos, error } = await supabase
+      const { data: videos, error } = await db
         .from('videos')
         .select('*, users!inner(*)')
         .order('created_at', { ascending: false });
 
       if (error) {
-        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#71717a;">Ошибка загрузки видео.</div>';
+        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Ошибка загрузки видео</div>';
         return;
       }
 
       if (!videos || videos.length === 0) {
-        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#71717a;">Пока нет видео. Будьте первым!</div>';
+        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Пока нет видео. Загрузите первое!</div>';
         return;
       }
 
-      const { data: userLikes } = await supabase
+      const { data: userLikes } = await db
         .from('likes')
         .select('video_id')
         .eq('user_id', currentUser.tg_id);
 
-      const likedIds = new Set((userLikes || []).map(l => l.video_id));
+      const likedSet = new Set((userLikes || []).map(l => l.video_id));
+      feed.innerHTML = '';
 
       videos.forEach(v => {
         const card = document.createElement('div');
         card.className = 'video-card';
-        const isLiked = likedIds.has(v.id);
-        const avatarSrc = v.users.avatar_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%2371717a'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+        const isLiked = likedSet.has(v.id);
+        const avatar = v.users.avatar_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%2371717a'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
         card.innerHTML = `
-          <video src="${v.video_url}" loop playsinline onclick="togglePlay(this)"></video>
+          <video src="${v.video_url}" loop playsinline onclick="this.paused ? this.play() : this.pause()"></video>
           <div class="sidebar">
             <button class="btn-action ${isLiked ? 'active' : ''}" onclick="toggleLike('${v.id}', this)">♥</button>
             <span class="action-count">${v.likes_count || 0}</span>
             ${currentUser.is_admin ? `
-              <button class="btn-action" title="Удалить видео" onclick="adminDeleteVideo('${v.id}')">🗑</button>
-              <button class="btn-action" title="Забанить автора" onclick="adminBanUser('${v.author_id}')">🚫</button>
+              <button class="btn-action" title="Удалить" onclick="adminDelete('${v.id}')">🗑</button>
+              <button class="btn-action" title="Бан" onclick="adminBan('${v.author_id}')">🚫</button>
             ` : ''}
           </div>
           <div class="meta">
             <div class="meta-user">
-              <img src="${avatarSrc}">
+              <img src="${avatar}">
               <span>${v.users.custom_name || v.users.username || 'Пользователь'}</span>
             </div>
             <div class="meta-desc">${escapeHtml(v.caption || '')}</div>
@@ -316,11 +334,6 @@
       });
 
       setupObserver();
-    }
-
-    function togglePlay(vid) {
-      if (vid.paused) vid.play();
-      else vid.pause();
     }
 
     function setupObserver() {
@@ -348,14 +361,14 @@
         btn.classList.remove('active');
         count = Math.max(0, count - 1);
         countEl.innerText = count;
-        await supabase.from('likes').delete().match({ user_id: currentUser.tg_id, video_id: videoId });
-        await supabase.from('videos').update({ likes_count: count }).eq('id', videoId);
+        await db.from('likes').delete().match({ user_id: currentUser.tg_id, video_id: videoId });
+        await db.from('videos').update({ likes_count: count }).eq('id', videoId);
       } else {
         btn.classList.add('active');
-        count = count + 1;
+        count += 1;
         countEl.innerText = count;
-        await supabase.from('likes').insert([{ user_id: currentUser.tg_id, video_id: videoId }]);
-        await supabase.from('videos').update({ likes_count: count }).eq('id', videoId);
+        await db.from('likes').insert([{ user_id: currentUser.tg_id, video_id: videoId }]);
+        await db.from('videos').update({ likes_count: count }).eq('id', videoId);
       }
     }
 
@@ -371,30 +384,25 @@
       });
     }
 
-    async function handleUpload() {
+    document.getElementById('btn-upload').addEventListener('click', async () => {
       const fileInput = document.getElementById('video-file');
       const caption = document.getElementById('video-caption').value.trim();
       const file = fileInput.files[0];
       const btn = document.getElementById('btn-upload');
 
-      if (!file) return alert('Пожалуйста, выберите видеофайл.');
+      if (!file) return alert('Выберите файл');
 
-      const maxSize = 19.999 * 1024 * 1024;
-      if (file.size > maxSize) {
-        return alert('Размер видео превышает лимит в 19.99 МБ.');
+      if (file.size > 19.999 * 1024 * 1024) {
+        return alert('Размер файла превышает 19.99 МБ');
       }
 
       if (currentUser.last_post_at) {
-        const diffSec = (new Date() - new Date(currentUser.last_post_at)) / 1000;
-        if (diffSec < 60) {
-          return alert(`Подождите еще ${Math.ceil(60 - diffSec)} сек. перед публикацией.`);
-        }
+        const diff = (new Date() - new Date(currentUser.last_post_at)) / 1000;
+        if (diff < 60) return alert(`Подождите еще ${Math.ceil(60 - diff)} сек.`);
       }
 
       const duration = await getVideoDuration(file);
-      if (duration > 60) {
-        return alert('Длина видео не должна превышать 60 секунд.');
-      }
+      if (duration > 60) return alert('Длительность видео больше 60 секунд');
 
       btn.innerText = 'Загрузка...';
       btn.disabled = true;
@@ -403,34 +411,32 @@
         const ext = file.name.split('.').pop() || 'mp4';
         const path = `videos/${currentUser.tg_id}_${Date.now()}.${ext}`;
 
-        const { error: uploadErr } = await supabase.storage.from('media').upload(path, file);
+        const { error: uploadErr } = await db.storage.from('media').upload(path, file);
         if (uploadErr) throw uploadErr;
 
-        const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
+        const { data: { publicUrl } } = db.storage.from('media').getPublicUrl(path);
 
-        const { error: insertErr } = await supabase.from('videos').insert([{
+        await db.from('videos').insert([{
           author_id: currentUser.tg_id,
           video_url: publicUrl,
           caption: caption
         }]);
-        if (insertErr) throw insertErr;
 
         const now = new Date().toISOString();
-        await supabase.from('users').update({ last_post_at: now }).eq('tg_id', currentUser.tg_id);
+        await db.from('users').update({ last_post_at: now }).eq('tg_id', currentUser.tg_id);
         currentUser.last_post_at = now;
 
-        alert('Видео успешно опубликовано!');
         fileInput.value = '';
         document.getElementById('video-caption').value = '';
         switchView('feed');
         loadFeed();
-      } catch (e) {
-        alert('Ошибка при публикации: ' + e.message);
+      } catch (err) {
+        alert('Ошибка публикации: ' + err.message);
       } finally {
         btn.innerText = 'Опубликовать';
         btn.disabled = false;
       }
-    }
+    });
 
     async function loadProfileData() {
       document.getElementById('custom-name').value = currentUser.custom_name || '';
@@ -438,21 +444,17 @@
         document.getElementById('my-avatar').src = currentUser.avatar_url;
       }
 
-      const { data } = await supabase
-        .from('videos')
-        .select('likes_count')
-        .eq('author_id', currentUser.tg_id);
-
+      const { data } = await db.from('videos').select('likes_count').eq('author_id', currentUser.tg_id);
       const total = (data || []).reduce((acc, row) => acc + (row.likes_count || 0), 0);
       document.getElementById('total-likes').innerText = total;
     }
 
-    async function saveProfile() {
+    document.getElementById('btn-save-profile').addEventListener('click', async () => {
       const btn = document.getElementById('btn-save-profile');
       const newName = document.getElementById('custom-name').value.trim();
       const avatarFile = document.getElementById('avatar-file').files[0];
 
-      if (!newName) return alert('Имя не может быть пустым.');
+      if (!newName) return alert('Имя не может быть пустым');
 
       btn.innerText = 'Сохранение...';
       btn.disabled = true;
@@ -463,65 +465,43 @@
         if (avatarFile) {
           const ext = avatarFile.name.split('.').pop() || 'jpg';
           const path = `avatars/${currentUser.tg_id}_${Date.now()}.${ext}`;
-          const { error: uploadErr } = await supabase.storage.from('media').upload(path, avatarFile);
-          if (uploadErr) throw uploadErr;
-
-          const { data } = supabase.storage.from('media').getPublicUrl(path);
+          await db.storage.from('media').upload(path, avatarFile);
+          const { data } = db.storage.from('media').getPublicUrl(path);
           avatarUrl = data.publicUrl;
         }
 
-        const { error: updateErr } = await supabase
-          .from('users')
-          .update({
-            custom_name: newName,
-            avatar_url: avatarUrl
-          })
-          .eq('tg_id', currentUser.tg_id);
-
-        if (updateErr) throw updateErr;
+        await db.from('users').update({ custom_name: newName, avatar_url: avatarUrl }).eq('tg_id', currentUser.tg_id);
 
         currentUser.custom_name = newName;
         currentUser.avatar_url = avatarUrl;
         if (avatarUrl) document.getElementById('my-avatar').src = avatarUrl;
 
-        alert('Профиль обновлен!');
+        alert('Профиль сохранен');
         switchView('feed');
         loadFeed();
-      } catch (e) {
-        alert('Ошибка сохранения: ' + e.message);
+      } catch (err) {
+        alert('Ошибка: ' + err.message);
       } finally {
         btn.innerText = 'Сохранить изменения';
         btn.disabled = false;
       }
-    }
+    });
 
-    async function adminDeleteVideo(id) {
-      if (!confirm('Вы точно хотите удалить это видео?')) return;
-      await supabase.from('videos').delete().eq('id', id);
+    async function adminDelete(id) {
+      if (!confirm('Удалить видео?')) return;
+      await db.from('videos').delete().eq('id', id);
       loadFeed();
     }
 
-    async function adminBanUser(authorId) {
-      if (!confirm('Заблокировать автора и стереть все его видео?')) return;
-      await supabase.from('users').update({ is_banned: true }).eq('tg_id', authorId);
-      await supabase.from('videos').delete().eq('author_id', authorId);
-      alert('Пользователь забанен.');
+    async function adminBan(userId) {
+      if (!confirm('Забанить автора и удалить его контент?')) return;
+      await db.from('users').update({ is_banned: true }).eq('tg_id', userId);
+      await db.from('videos').delete().eq('author_id', userId);
       loadFeed();
     }
 
-    function switchView(view) {
-      document.getElementById('modal-upload').style.display = view === 'upload' ? 'flex' : 'none';
-      document.getElementById('modal-profile').style.display = view === 'profile' ? 'flex' : 'none';
-      
-      document.getElementById('nav-btn-feed').classList.toggle('active', view === 'feed');
-      document.getElementById('nav-btn-profile').classList.toggle('active', view === 'profile');
-
-      if (view === 'profile') loadProfileData();
-    }
-
-    function escapeHtml(text) {
-      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-      return text.replace(/[&<>"']/g, (m) => map[m]);
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' })[m]);
     }
 
     initUser();
