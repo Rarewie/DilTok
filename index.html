@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>TikTok WebApp</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%23ff004f'/%3E%3C/svg%3E">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -17,7 +18,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; height: 100vh; width: 100vw; }
-    
+
     .feed-container {
       height: calc(100vh - 65px);
       width: 100vw;
@@ -26,7 +27,7 @@
       scrollbar-width: none;
     }
     .feed-container::-webkit-scrollbar { display: none; }
-    
+
     .video-card {
       position: relative;
       height: 100%;
@@ -210,11 +211,10 @@
 
   <script>
     const SUPABASE_PROJECT_URL = "https://tztvrocjqozwxijkxwxh.supabase.co";
-    // Обязательно строка в кавычках без троеточий и разрывов:
-    const SUPABASE_ANON_KEY = "sb_publishable_So31sdxnNk7bscRc3bVBmg_gU6r6Hrk"; 
+    const SUPABASE_ANON_KEY = "sb_publishable_So31sdxnNk7bscRc3bVBmg_gU6r6Hrk";
 
     const clientDb = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
-    
+
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
@@ -225,10 +225,12 @@
     let allVideos = [];
     let watchedVideoIds = new Set();
 
+    /* ---------- Глобальные функции для inline-обработчиков ---------- */
+
     function switchView(view) {
       document.getElementById('modal-upload').style.display = (view === 'upload') ? 'flex' : 'none';
       document.getElementById('modal-profile').style.display = (view === 'profile') ? 'flex' : 'none';
-      
+
       document.getElementById('nav-btn-feed').classList.toggle('active', view === 'feed');
       document.getElementById('nav-btn-profile').classList.toggle('active', view === 'profile');
 
@@ -236,6 +238,43 @@
         loadProfileData();
       }
     }
+    window.switchView = switchView;
+
+    function togglePlay(video) {
+      if (video.paused) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    }
+    window.togglePlay = togglePlay;
+
+    function toggleLike(videoId, btn) {
+      return window._toggleLike(videoId, btn);
+    }
+    window.toggleLike = toggleLike;
+
+    function handleUpload() {
+      return window._handleUpload();
+    }
+    window.handleUpload = handleUpload;
+
+    function saveProfile() {
+      return window._saveProfile();
+    }
+    window.saveProfile = saveProfile;
+
+    function adminDelete(id) {
+      return window._adminDelete(id);
+    }
+    window.adminDelete = adminDelete;
+
+    function adminBan(userId) {
+      return window._adminBan(userId);
+    }
+    window.adminBan = adminBan;
+
+    /* ---------- Инициализация пользователя ---------- */
 
     async function initUser() {
       const initData = tg?.initData;
@@ -337,7 +376,7 @@
 
       let unwatched = allVideos.filter(v => !watchedVideoIds.has(v.id));
       let pool = unwatched.length > 0 ? unwatched : allVideos;
-      
+
       if (unwatched.length === 0) {
         watchedVideoIds.clear();
       }
@@ -349,12 +388,12 @@
         const card = document.createElement('div');
         card.className = 'video-card';
         card.id = `card-${v.id}`;
-        
+
         const isLiked = likedSet.has(v.id);
         const avatar = v.users.avatar_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='%2371717a'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
 
         card.innerHTML = `
-          <video src="${v.video_url}" loop playsinline onclick="this.paused ? this.play() : this.pause()"></video>
+          <video src="${v.video_url}" loop playsinline onclick="togglePlay(this)"></video>
           <div class="sidebar">
             <button class="btn-action ${isLiked ? 'active' : ''}" onclick="toggleLike('${v.id}', this)">♥</button>
             <span class="action-count">${v.likes_count || 0}</span>
@@ -384,7 +423,7 @@
           if (entry.isIntersecting) {
             video.currentTime = 0;
             video.play().catch(() => {});
-            
+
             if (entry.target === document.querySelector('#feed > .video-card:last-child')) {
               fetchVideosAndInitFeed();
             }
@@ -397,7 +436,9 @@
       document.querySelectorAll('.video-card').forEach(card => observer.observe(card));
     }
 
-    async function toggleLike(videoId, btn) {
+    /* ---------- Реализации (внутренние) ---------- */
+
+    window._toggleLike = async function(videoId, btn) {
       const isLiked = btn.classList.contains('active');
       const countEl = btn.nextElementSibling;
       let count = parseInt(countEl.innerText) || 0;
@@ -415,7 +456,7 @@
         await clientDb.from('likes').insert([{ user_id: currentUser.tg_id, video_id: videoId }]);
         await clientDb.from('videos').update({ likes_count: count }).eq('id', videoId);
       }
-    }
+    };
 
     function getVideoDuration(file) {
       return new Promise((resolve) => {
@@ -429,7 +470,7 @@
       });
     }
 
-    async function handleUpload() {
+    window._handleUpload = async function() {
       const fileInput = document.getElementById('video-file');
       const caption = document.getElementById('video-caption').value.trim();
       const file = fileInput.files[0];
@@ -483,7 +524,7 @@
         btn.innerText = 'Опубликовать';
         btn.disabled = false;
       }
-    }
+    };
 
     async function loadProfileData() {
       document.getElementById('custom-name').value = currentUser.custom_name || '';
@@ -496,7 +537,7 @@
       document.getElementById('total-likes').innerText = total;
     }
 
-    async function saveProfile() {
+    window._saveProfile = async function() {
       const btn = document.getElementById('btn-save-profile');
       const newName = document.getElementById('custom-name').value.trim();
       const avatarFile = document.getElementById('avatar-file').files[0];
@@ -512,7 +553,7 @@
         if (avatarFile) {
           const ext = avatarFile.name.split('.').pop() || 'jpg';
           const path = `avatars/${currentUser.tg_id}_${Date.now()}.${ext}`;
-          
+
           const { error: uploadErr } = await clientDb.storage.from('media').upload(path, avatarFile, { upsert: true });
           if (uploadErr) throw uploadErr;
 
@@ -540,21 +581,21 @@
         btn.innerText = 'Сохранить изменения';
         btn.disabled = false;
       }
-    }
+    };
 
-    async function adminDelete(id) {
+    window._adminDelete = async function(id) {
       if (!confirm('Удалить видео?')) return;
       await clientDb.from('videos').delete().eq('id', id);
       fetchVideosAndInitFeed();
-    }
+    };
 
-    async function adminBan(userId) {
+    window._adminBan = async function(userId) {
       if (!confirm('Забанить автора и удалить контент?')) return;
       await clientDb.from('users').update({ is_banned: true }).eq('tg_id', userId);
       await clientDb.from('videos').delete().eq('author_id', userId);
       alert('Пользователь забанен.');
       fetchVideosAndInitFeed();
-    }
+    };
 
     function escapeHtml(str) {
       return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' })[m]);
