@@ -166,15 +166,15 @@
   </div>
 
   <div class="nav">
-    <button id="nav-btn-feed" class="active" type="button">Лента</button>
-    <button id="nav-btn-upload" class="nav-post-btn" type="button">+</button>
-    <button id="nav-btn-profile" type="button">Профиль</button>
+    <button id="nav-btn-feed" class="active" onclick="switchView('feed')">Лента</button>
+    <button id="nav-btn-upload" class="nav-post-btn" onclick="switchView('upload')">+</button>
+    <button id="nav-btn-profile" onclick="switchView('profile')">Профиль</button>
   </div>
 
   <div id="modal-upload" class="modal">
     <div class="modal-header">
       <h3>Новая публикация</h3>
-      <button id="close-upload-btn" type="button" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">✕</button>
+      <button onclick="switchView('feed')" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">✕</button>
     </div>
     <div class="input-group">
       <label>Видеофайл (до 19.99 МБ, до 60 сек)</label>
@@ -184,13 +184,13 @@
       <label>Описание</label>
       <textarea id="video-caption" rows="3" placeholder="Что происходит на видео?"></textarea>
     </div>
-    <button class="btn-submit" id="btn-upload" type="button">Опубликовать</button>
+    <button class="btn-submit" id="btn-upload" onclick="handleUpload()">Опубликовать</button>
   </div>
 
   <div id="modal-profile" class="modal">
     <div class="modal-header">
       <h3>Мой профиль</h3>
-      <button id="close-profile-btn" type="button" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">✕</button>
+      <button onclick="switchView('feed')" style="background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">✕</button>
     </div>
     <img id="my-avatar" class="profile-avatar" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 24 24' fill='%2371717a'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
     <div class="stats-card">
@@ -205,14 +205,17 @@
       <label>Отображаемое имя</label>
       <input type="text" id="custom-name" placeholder="Ваш никнейм">
     </div>
-    <button class="btn-submit" id="btn-save-profile" type="button">Сохранить изменения</button>
+    <button class="btn-submit" id="btn-save-profile" onclick="saveProfile()">Сохранить изменения</button>
   </div>
 
   <script>
-    const SUPABASE_URL = "https://tztvrocjqozwxijkxwxh.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6dHZyb2NqcW96d3hpamt4d3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDkNzEyODYsImV4cCI6MjAyNTI4NzI4Nn0.c1Xvgl0kmS-HnpQc_69GEZ_0lLAyWnFrW4GHe3Yn-28";
+    // Точный URL без лишнего /rest/v1/
+    const SUPABASE_PROJECT_URL = "https://tztvrocjqozwxijkxwxh.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6dHZyb2NqcW96d3hpamt4d3hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDkNzEyODYsImV4cCI6MjAyNTI4NzI4Nn0.c1Xvgl0kmS-HnpQc_69GEZ_0lLAyWnFrW4GHe3Yn-28";
 
-    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Создаем клиент один раз под уникальным именем
+    const clientDb = window.supabase.createClient(SUPABASE_PROJECT_URL, SUPABASE_ANON_KEY);
+    
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
@@ -221,9 +224,10 @@
 
     let currentUser = null;
 
+    // Глобальная функция переключения экранов
     function switchView(view) {
-      document.getElementById('modal-upload').style.display = view === 'upload' ? 'flex' : 'none';
-      document.getElementById('modal-profile').style.display = view === 'profile' ? 'flex' : 'none';
+      document.getElementById('modal-upload').style.display = (view === 'upload') ? 'flex' : 'none';
+      document.getElementById('modal-profile').style.display = (view === 'profile') ? 'flex' : 'none';
       
       document.getElementById('nav-btn-feed').classList.toggle('active', view === 'feed');
       document.getElementById('nav-btn-profile').classList.toggle('active', view === 'profile');
@@ -233,12 +237,6 @@
       }
     }
 
-    document.getElementById('nav-btn-feed').addEventListener('click', () => switchView('feed'));
-    document.getElementById('nav-btn-upload').addEventListener('click', () => switchView('upload'));
-    document.getElementById('nav-btn-profile').addEventListener('click', () => switchView('profile'));
-    document.getElementById('close-upload-btn').addEventListener('click', () => switchView('feed'));
-    document.getElementById('close-profile-btn').addEventListener('click', () => switchView('feed'));
-
     async function initUser() {
       const initData = tg?.initData;
 
@@ -246,59 +244,59 @@
         document.getElementById('feed').innerHTML = `
           <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;height:100%;padding:24px;text-align:center;">
             <h3 style="margin-bottom:8px;">Запустите в Telegram</h3>
-            <p style="color:var(--text-muted);font-size:14px;">Приложение работает только через кнопку меню бота.</p>
+            <p style="color:var(--text-muted);font-size:14px;">Откройте приложение через кнопку меню вашего бота.</p>
           </div>
         `;
         return;
       }
 
       try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/auth-verify`, {
+        const response = await fetch(`${SUPABASE_PROJECT_URL}/functions/v1/auth-verify`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "apikey": SUPABASE_KEY
+            "apikey": SUPABASE_ANON_KEY
           },
           body: JSON.stringify({ initData })
         });
 
         if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || "Ошибка авторизации");
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || "Сервер отклонил авторизацию");
         }
 
         const data = await response.json();
         currentUser = data.user;
 
         if (currentUser.is_banned) {
-          document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#ef4444;">Аккаунт заблокирован.</div>';
+          document.body.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100vh;color:#ef4444;">Ваш аккаунт заблокирован.</div>';
           return;
         }
 
         loadFeed();
       } catch (err) {
-        document.getElementById('feed').innerHTML = `<div style="padding:20px;text-align:center;color:#ef4444;">Ошибка подключения: ${err.message}</div>`;
+        document.getElementById('feed').innerHTML = `<div style="padding:24px;text-align:center;color:#ef4444;">Ошибка подключения: ${err.message}</div>`;
       }
     }
 
     async function loadFeed() {
       const feed = document.getElementById('feed');
-      const { data: videos, error } = await db
+      const { data: videos, error } = await clientDb
         .from('videos')
         .select('*, users!inner(*)')
         .order('created_at', { ascending: false });
 
       if (error) {
-        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Ошибка загрузки видео</div>';
+        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Ошибка загрузки видео.</div>';
         return;
       }
 
       if (!videos || videos.length === 0) {
-        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Пока нет видео. Загрузите первое!</div>';
+        feed.innerHTML = '<div style="display:flex;justify-content:center;align-items:center;height:100%;color:var(--text-muted);">Пока нет видео. Опубликуйте первое!</div>';
         return;
       }
 
-      const { data: userLikes } = await db
+      const { data: userLikes } = await clientDb
         .from('likes')
         .select('video_id')
         .eq('user_id', currentUser.tg_id);
@@ -361,14 +359,14 @@
         btn.classList.remove('active');
         count = Math.max(0, count - 1);
         countEl.innerText = count;
-        await db.from('likes').delete().match({ user_id: currentUser.tg_id, video_id: videoId });
-        await db.from('videos').update({ likes_count: count }).eq('id', videoId);
+        await clientDb.from('likes').delete().match({ user_id: currentUser.tg_id, video_id: videoId });
+        await clientDb.from('videos').update({ likes_count: count }).eq('id', videoId);
       } else {
         btn.classList.add('active');
         count += 1;
         countEl.innerText = count;
-        await db.from('likes').insert([{ user_id: currentUser.tg_id, video_id: videoId }]);
-        await db.from('videos').update({ likes_count: count }).eq('id', videoId);
+        await clientDb.from('likes').insert([{ user_id: currentUser.tg_id, video_id: videoId }]);
+        await clientDb.from('videos').update({ likes_count: count }).eq('id', videoId);
       }
     }
 
@@ -384,13 +382,13 @@
       });
     }
 
-    document.getElementById('btn-upload').addEventListener('click', async () => {
+    async function handleUpload() {
       const fileInput = document.getElementById('video-file');
       const caption = document.getElementById('video-caption').value.trim();
       const file = fileInput.files[0];
       const btn = document.getElementById('btn-upload');
 
-      if (!file) return alert('Выберите файл');
+      if (!file) return alert('Пожалуйста, выберите видеофайл');
 
       if (file.size > 19.999 * 1024 * 1024) {
         return alert('Размер файла превышает 19.99 МБ');
@@ -398,11 +396,11 @@
 
       if (currentUser.last_post_at) {
         const diff = (new Date() - new Date(currentUser.last_post_at)) / 1000;
-        if (diff < 60) return alert(`Подождите еще ${Math.ceil(60 - diff)} сек.`);
+        if (diff < 60) return alert(`Подождите еще ${Math.ceil(60 - diff)} сек. перед публикацией`);
       }
 
       const duration = await getVideoDuration(file);
-      if (duration > 60) return alert('Длительность видео больше 60 секунд');
+      if (duration > 60) return alert('Длительность видео превышает 60 секунд');
 
       btn.innerText = 'Загрузка...';
       btn.disabled = true;
@@ -411,32 +409,34 @@
         const ext = file.name.split('.').pop() || 'mp4';
         const path = `videos/${currentUser.tg_id}_${Date.now()}.${ext}`;
 
-        const { error: uploadErr } = await db.storage.from('media').upload(path, file);
+        const { error: uploadErr } = await clientDb.storage.from('media').upload(path, file);
         if (uploadErr) throw uploadErr;
 
-        const { data: { publicUrl } } = db.storage.from('media').getPublicUrl(path);
+        const { data: { publicUrl } } = clientDb.storage.from('media').getPublicUrl(path);
 
-        await db.from('videos').insert([{
+        const { error: insertErr } = await clientDb.from('videos').insert([{
           author_id: currentUser.tg_id,
           video_url: publicUrl,
           caption: caption
         }]);
+        if (insertErr) throw insertErr;
 
         const now = new Date().toISOString();
-        await db.from('users').update({ last_post_at: now }).eq('tg_id', currentUser.tg_id);
+        await clientDb.from('users').update({ last_post_at: now }).eq('tg_id', currentUser.tg_id);
         currentUser.last_post_at = now;
 
+        alert('Видео успешно опубликовано!');
         fileInput.value = '';
         document.getElementById('video-caption').value = '';
         switchView('feed');
         loadFeed();
       } catch (err) {
-        alert('Ошибка публикации: ' + err.message);
+        alert('Ошибка при публикации: ' + err.message);
       } finally {
         btn.innerText = 'Опубликовать';
         btn.disabled = false;
       }
-    });
+    }
 
     async function loadProfileData() {
       document.getElementById('custom-name').value = currentUser.custom_name || '';
@@ -444,12 +444,12 @@
         document.getElementById('my-avatar').src = currentUser.avatar_url;
       }
 
-      const { data } = await db.from('videos').select('likes_count').eq('author_id', currentUser.tg_id);
+      const { data } = await clientDb.from('videos').select('likes_count').eq('author_id', currentUser.tg_id);
       const total = (data || []).reduce((acc, row) => acc + (row.likes_count || 0), 0);
       document.getElementById('total-likes').innerText = total;
     }
 
-    document.getElementById('btn-save-profile').addEventListener('click', async () => {
+    async function saveProfile() {
       const btn = document.getElementById('btn-save-profile');
       const newName = document.getElementById('custom-name').value.trim();
       const avatarFile = document.getElementById('avatar-file').files[0];
@@ -465,38 +465,47 @@
         if (avatarFile) {
           const ext = avatarFile.name.split('.').pop() || 'jpg';
           const path = `avatars/${currentUser.tg_id}_${Date.now()}.${ext}`;
-          await db.storage.from('media').upload(path, avatarFile);
-          const { data } = db.storage.from('media').getPublicUrl(path);
+          
+          const { error: uploadErr } = await clientDb.storage.from('media').upload(path, avatarFile);
+          if (uploadErr) throw uploadErr;
+
+          const { data } = clientDb.storage.from('media').getPublicUrl(path);
           avatarUrl = data.publicUrl;
         }
 
-        await db.from('users').update({ custom_name: newName, avatar_url: avatarUrl }).eq('tg_id', currentUser.tg_id);
+        const { error: updateErr } = await clientDb
+          .from('users')
+          .update({ custom_name: newName, avatar_url: avatarUrl })
+          .eq('tg_id', currentUser.tg_id);
+
+        if (updateErr) throw updateErr;
 
         currentUser.custom_name = newName;
         currentUser.avatar_url = avatarUrl;
         if (avatarUrl) document.getElementById('my-avatar').src = avatarUrl;
 
-        alert('Профиль сохранен');
+        alert('Профиль обновлен!');
         switchView('feed');
         loadFeed();
       } catch (err) {
-        alert('Ошибка: ' + err.message);
+        alert('Ошибка сохранения: ' + err.message);
       } finally {
         btn.innerText = 'Сохранить изменения';
         btn.disabled = false;
       }
-    });
+    }
 
     async function adminDelete(id) {
       if (!confirm('Удалить видео?')) return;
-      await db.from('videos').delete().eq('id', id);
+      await clientDb.from('videos').delete().eq('id', id);
       loadFeed();
     }
 
     async function adminBan(userId) {
-      if (!confirm('Забанить автора и удалить его контент?')) return;
-      await db.from('users').update({ is_banned: true }).eq('tg_id', userId);
-      await db.from('videos').delete().eq('author_id', userId);
+      if (!confirm('Забанить автора и удалить контент?')) return;
+      await clientDb.from('users').update({ is_banned: true }).eq('tg_id', userId);
+      await clientDb.from('videos').delete().eq('author_id', userId);
+      alert('Пользователь забанен.');
       loadFeed();
     }
 
@@ -504,6 +513,7 @@
       return str.replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' })[m]);
     }
 
+    // Запуск приложения
     initUser();
   </script>
 </body>
